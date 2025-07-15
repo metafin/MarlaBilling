@@ -157,6 +157,43 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        .filter-box {
+            width: 100%;
+            padding: 8px 30px 8px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .filter-box:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        .filter-container {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        .filter-clear {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: none;
+        }
+        .filter-clear:hover {
+            color: #666;
+        }
+        .filter-clear.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -196,6 +233,10 @@
         <!-- Appointments Column -->
         <div class="column">
             <h3>Calendar Appointments</h3>
+            <div class="filter-container">
+                <input type="text" class="filter-box" id="appointments-filter" placeholder="Filter by title or attendee..." onkeyup="filterByText('appointments')" oninput="toggleClearButton('appointments')">
+                <button class="filter-clear" id="appointments-clear" onclick="clearFilter('appointments')" title="Clear filter">×</button>
+            </div>
             <div class="column-controls">
                 <span>Total: {{ appointments|length }}</span>
                 <button class="toggle-cleared" onclick="toggleShowCleared('appointments')">
@@ -206,7 +247,8 @@
                 {% for appointment in appointments %}
                     <div class="item {% if appointment.cleared %}cleared{% endif %}" 
                          data-cleared="{{ appointment.cleared|lower }}" 
-                         data-type="appointment">
+                         data-type="appointment"
+                         data-searchable="{{ appointment.summary|lower }} {{ appointment.attendees|join(' ')|lower }}">
                         <div class="item-header">
                             <div>
                                 <input type="checkbox" class="checkbox" 
@@ -218,7 +260,7 @@
                         </div>
                         <div class="item-details">
                             <div>Time: {{ appointment.start[11:16] if appointment.start|length > 10 else 'All day' }}</div>
-                            {% if appointment.attendees %}
+                            {% if appointment.attendees and appointment.attendees|length > 0 %}
                                 <div><strong>Attendees:</strong> {{ appointment.attendees|join(', ') }}</div>
                             {% endif %}
                             {% if appointment.description %}
@@ -233,6 +275,10 @@
         <!-- Transactions Column -->
         <div class="column">
             <h3>Venmo Transactions</h3>
+            <div class="filter-container">
+                <input type="text" class="filter-box" id="transactions-filter" placeholder="Filter by sender or note..." onkeyup="filterByText('transactions')" oninput="toggleClearButton('transactions')">
+                <button class="filter-clear" id="transactions-clear" onclick="clearFilter('transactions')" title="Clear filter">×</button>
+            </div>
             <div class="column-controls">
                 <span>Total: {{ transactions|length }}</span>
                 <button class="toggle-cleared" onclick="toggleShowCleared('transactions')">
@@ -243,7 +289,8 @@
                 {% for transaction in transactions %}
                     <div class="item {% if transaction.cleared %}cleared{% endif %}" 
                          data-cleared="{{ transaction.cleared|lower }}" 
-                         data-type="transaction">
+                         data-type="transaction"
+                         data-searchable="{{ transaction.from|lower }} {{ transaction.note|lower }}">
                         <div class="item-header">
                             <div>
                                 <input type="checkbox" class="checkbox" 
@@ -324,17 +371,51 @@
         }
 
         function filterItems(containerId, showCleared) {
+            const type = containerId.replace('-container', '');
+            const filterId = type + '-filter';
             const container = document.getElementById(containerId);
+            const filterInput = document.getElementById(filterId);
+            const filterText = filterInput ? filterInput.value.toLowerCase() : '';
             const items = container.querySelectorAll('.item');
             
             items.forEach(item => {
                 const isCleared = item.getAttribute('data-cleared') === 'true';
-                if (isCleared && !showCleared) {
-                    item.style.display = 'none';
-                } else {
+                const searchableText = item.getAttribute('data-searchable') || '';
+                const matchesFilter = filterText === '' || searchableText.includes(filterText);
+                
+                // Show item only if it matches both filter and cleared status
+                if (matchesFilter && (!isCleared || showCleared)) {
                     item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
                 }
             });
+        }
+
+        function filterByText(type) {
+            const containerId = type + '-container';
+            const showCleared = type === 'appointments' ? showClearedAppointments : showClearedTransactions;
+            filterItems(containerId, showCleared);
+        }
+
+        function toggleClearButton(type) {
+            const filterInput = document.getElementById(type + '-filter');
+            const clearButton = document.getElementById(type + '-clear');
+            
+            if (filterInput.value.trim() !== '') {
+                clearButton.classList.add('show');
+            } else {
+                clearButton.classList.remove('show');
+            }
+        }
+
+        function clearFilter(type) {
+            const filterInput = document.getElementById(type + '-filter');
+            const clearButton = document.getElementById(type + '-clear');
+            
+            filterInput.value = '';
+            clearButton.classList.remove('show');
+            filterByText(type);
         }
 
         function toggleCleared(type, id) {

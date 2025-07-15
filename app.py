@@ -135,6 +135,19 @@ def download_appointments():
         
         # Add only new appointments
         new_appointments = [apt for apt in therapy_events if apt['id'] not in existing_ids]
+        
+        # Update existing appointments with attendee info if missing
+        for existing_apt in existing_appointments:
+            if 'attendees' not in existing_apt:
+                # Find the corresponding event in therapy_events
+                for new_apt in therapy_events:
+                    if new_apt['id'] == existing_apt['id']:
+                        existing_apt['attendees'] = new_apt['attendees']
+                        break
+                else:
+                    # If not found in current download, set empty attendees
+                    existing_apt['attendees'] = []
+        
         all_appointments = existing_appointments + new_appointments
         
         # Save updated appointments
@@ -247,4 +260,4 @@ def toggle_cleared():
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)
