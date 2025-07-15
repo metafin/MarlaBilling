@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marla's Billing Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .control-group input, .control-group button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .control-group button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        .control-group button:hover {
+            background-color: #0056b3;
+        }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            height: 70vh;
+        }
+        .column {
+            flex: 1;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .column h3 {
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007bff;
+        }
+        .column-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .toggle-cleared {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .toggle-cleared:hover {
+            background-color: #218838;
+        }
+        .items-container {
+            overflow-y: auto;
+            height: calc(100% - 100px);
+        }
+        .item {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.3s;
+        }
+        .item.cleared {
+            background-color: #f8f9fa;
+            opacity: 0.7;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .item-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .checkbox {
+            margin-right: 10px;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .file-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Marla's Billing Tool</h1>
+        <p>Match therapy appointments with Venmo payments</p>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Controls -->
+    <div class="controls">
+        <div class="control-group">
+            <label for="start_date">Download appointments from:</label>
+            <form method="POST" action="/download_appointments" style="display: flex; gap: 10px;">
+                <input type="date" id="start_date" name="start_date" required>
+                <button type="submit">Download Calendar</button>
+            </form>
+        </div>
+        <div class="control-group">
+            <label>Import Venmo CSV:</label>
+            <button onclick="openVenmoModal()">Import Venmo CSV</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Appointments Column -->
+        <div class="column">
+            <h3>Calendar Appointments</h3>
+            <div class="column-controls">
+                <span>Total: {{ appointments|length }}</span>
+                <button class="toggle-cleared" onclick="toggleShowCleared('appointments')">
+                    <span id="appointments-toggle-text">Hide Cleared</span>
+                </button>
+            </div>
+            <div class="items-container" id="appointments-container">
+                {% for appointment in appointments %}
+                    <div class="item {% if appointment.cleared %}cleared{% endif %}" 
+                         data-cleared="{{ appointment.cleared|lower }}" 
+                         data-type="appointment">
+                        <div class="item-header">
+                            <div>
+                                <input type="checkbox" class="checkbox" 
+                                       {% if appointment.cleared %}checked{% endif %}
+                                       onchange="toggleCleared('appointment', '{{ appointment.id }}')">
+                                {{ appointment.summary }}
+                            </div>
+                            <small>{{ appointment.start[:10] }}</small>
+                        </div>
+                        <div class="item-details">
+                            <div>Time: {{ appointment.start[11:16] if appointment.start|length > 10 else 'All day' }}</div>
+                            {% if appointment.attendees %}
+                                <div><strong>Attendees:</strong> {{ appointment.attendees|join(', ') }}</div>
+                            {% endif %}
+                            {% if appointment.description %}
+                                <div>{{ appointment.description[:100] }}{% if appointment.description|length > 100 %}...{% endif %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Transactions Column -->
+        <div class="column">
+            <h3>Venmo Transactions</h3>
+            <div class="column-controls">
+                <span>Total: {{ transactions|length }}</span>
+                <button class="toggle-cleared" onclick="toggleShowCleared('transactions')">
+                    <span id="transactions-toggle-text">Hide Cleared</span>
+                </button>
+            </div>
+            <div class="items-container" id="transactions-container">
+                {% for transaction in transactions %}
+                    <div class="item {% if transaction.cleared %}cleared{% endif %}" 
+                         data-cleared="{{ transaction.cleared|lower }}" 
+                         data-type="transaction">
+                        <div class="item-header">
+                            <div>
+                                <input type="checkbox" class="checkbox" 
+                                       {% if transaction.cleared %}checked{% endif %}
+                                       onchange="toggleCleared('transaction', '{{ transaction.id }}')">
+                                {{ transaction.type }}: {{ transaction.amount }}
+                            </div>
+                            <small>{{ transaction.datetime[:10] }}</small>
+                        </div>
+                        <div class="item-details">
+                            <div>From: {{ transaction.from }}</div>
+                            <div>To: {{ transaction.to }}</div>
+                            {% if transaction.note %}
+                                <div>Note: {{ transaction.note }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Venmo CSV Import Modal -->
+    <div id="venmoModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeVenmoModal()">&times;</span>
+            <h2>Import Venmo CSV</h2>
+            
+            <div style="background-color: #f0f8ff; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+                <h3 style="margin-top: 0;">How to download your Venmo transaction history:</h3>
+                <ol style="margin-bottom: 0;">
+                    <li>Log into <a href="https://venmo.com" target="_blank">venmo.com</a> (not the mobile app)</li>
+                    <li>Click on your profile icon in the top right</li>
+                    <li>Go to <strong>Settings</strong></li>
+                    <li>Click on <strong>Statements</strong></li>
+                    <li>Choose your date range</li>
+                    <li>Click <strong>Download CSV</strong></li>
+                    <li>Save the CSV file and upload it here</li>
+                </ol>
+                
+                <p style="margin: 10px 0 0 0; font-size: 0.9em; color: #666;">
+                    <strong>Note:</strong> The CSV should contain columns for ID, Datetime, Type, Status, Note, From, To, and Amount.
+                    Only transactions with status "Complete" will be imported.
+                </p>
+            </div>
+            
+            <form method="POST" action="/import_venmo" enctype="multipart/form-data">
+                <input type="file" name="venmo_csv" accept=".csv" class="file-input" required>
+                <button type="submit" style="width: 100%; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Import CSV</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let showClearedAppointments = true;
+        let showClearedTransactions = true;
+
+        function openVenmoModal() {
+            document.getElementById('venmoModal').style.display = 'block';
+        }
+
+        function closeVenmoModal() {
+            document.getElementById('venmoModal').style.display = 'none';
+        }
+
+        function toggleShowCleared(type) {
+            if (type === 'appointments') {
+                showClearedAppointments = !showClearedAppointments;
+                document.getElementById('appointments-toggle-text').textContent = 
+                    showClearedAppointments ? 'Hide Cleared' : 'Show Cleared';
+                filterItems('appointments-container', showClearedAppointments);
+            } else {
+                showClearedTransactions = !showClearedTransactions;
+                document.getElementById('transactions-toggle-text').textContent = 
+                    showClearedTransactions ? 'Hide Cleared' : 'Show Cleared';
+                filterItems('transactions-container', showClearedTransactions);
+            }
+        }
+
+        function filterItems(containerId, showCleared) {
+            const container = document.getElementById(containerId);
+            const items = container.querySelectorAll('.item');
+            
+            items.forEach(item => {
+                const isCleared = item.getAttribute('data-cleared') === 'true';
+                if (isCleared && !showCleared) {
+                    item.style.display = 'none';
+                } else {
+                    item.style.display = 'block';
+                }
+            });
+        }
+
+        function toggleCleared(type, id) {
+            // Find the item and toggle its cleared state in the UI
+            const containers = type === 'appointment' ? ['appointments-container'] : ['transactions-container'];
+            containers.forEach(containerId => {
+                const container = document.getElementById(containerId);
+                const items = container.querySelectorAll('.item');
+                items.forEach(item => {
+                    const itemType = item.getAttribute('data-type');
+                    if (itemType === type) {
+                        const checkbox = item.querySelector('input[type="checkbox"]');
+                        if (checkbox && checkbox.getAttribute('onchange').includes(id)) {
+                            const isCurrentlyCleared = item.getAttribute('data-cleared') === 'true';
+                            item.setAttribute('data-cleared', !isCurrentlyCleared);
+                            if (!isCurrentlyCleared) {
+                                item.classList.add('cleared');
+                            } else {
+                                item.classList.remove('cleared');
+                            }
+                            
+                            // Apply current filter
+                            const showCleared = type === 'appointment' ? showClearedAppointments : showClearedTransactions;
+                            if (!isCurrentlyCleared && !showCleared) {
+                                item.style.display = 'none';
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Send update to server
+            fetch('/toggle_cleared', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ type: type, id: id })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    alert('Error saving state: ' + data.error);
+                    // Reload to sync with server state
+                    location.reload();
+                }
+            });
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('venmoModal');
+            if (event.target === modal) {
+                closeVenmoModal();
+            }
+        }
+    </script>
+</body>
+</html>
