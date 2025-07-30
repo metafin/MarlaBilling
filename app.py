@@ -76,6 +76,13 @@ def index():
     """Main page with dual windows"""
     appointments = load_data(APPOINTMENTS_FILE)
     transactions = load_data(TRANSACTIONS_FILE)
+    
+    # Sort appointments by start date (oldest to newest)
+    appointments.sort(key=lambda x: x.get('start', ''))
+    
+    # Sort transactions by datetime (oldest to newest)
+    transactions.sort(key=lambda x: x.get('datetime', ''))
+    
     return render_template('index.html', appointments=appointments, transactions=transactions)
 
 @app.route('/download_appointments', methods=['POST'])
@@ -104,30 +111,29 @@ def download_appointments():
         
         events = events_result.get('items', [])
         
-        # Filter for therapy sessions
+        # Process all events (no filtering)
         therapy_events = []
         for event in events:
-            if is_therapy_session(event):
-                # Get attendees excluding the organizer (Marla)
-                attendees = []
-                if 'attendees' in event:
-                    organizer_email = event.get('organizer', {}).get('email', '').lower()
-                    for attendee in event['attendees']:
-                        attendee_email = attendee.get('email', '').lower()
-                        # Exclude organizer and declined attendees
-                        if attendee_email != organizer_email and attendee.get('responseStatus') != 'declined':
-                            name = attendee.get('displayName', attendee.get('email', ''))
-                            attendees.append(name)
-                
-                therapy_events.append({
-                    'id': event['id'],
-                    'summary': event.get('summary', ''),
-                    'description': event.get('description', ''),
-                    'start': event['start'].get('dateTime', event['start'].get('date')),
-                    'end': event['end'].get('dateTime', event['end'].get('date')),
-                    'attendees': attendees,
-                    'cleared': False
-                })
+            # Get attendees excluding the organizer (Marla)
+            attendees = []
+            if 'attendees' in event:
+                organizer_email = event.get('organizer', {}).get('email', '').lower()
+                for attendee in event['attendees']:
+                    attendee_email = attendee.get('email', '').lower()
+                    # Exclude organizer and declined attendees
+                    if attendee_email != organizer_email and attendee.get('responseStatus') != 'declined':
+                        name = attendee.get('displayName', attendee.get('email', ''))
+                        attendees.append(name)
+            
+            therapy_events.append({
+                'id': event['id'],
+                'summary': event.get('summary', ''),
+                'description': event.get('description', ''),
+                'start': event['start'].get('dateTime', event['start'].get('date')),
+                'end': event['end'].get('dateTime', event['end'].get('date')),
+                'attendees': attendees,
+                'cleared': False
+            })
         
         # Load existing appointments and merge
         existing_appointments = load_data(APPOINTMENTS_FILE)

@@ -276,7 +276,7 @@
         <div class="column">
             <h3>Venmo Transactions</h3>
             <div class="filter-container">
-                <input type="text" class="filter-box" id="transactions-filter" placeholder="Filter by sender or note..." onkeyup="filterByText('transactions')" oninput="toggleClearButton('transactions')">
+                <input type="text" class="filter-box" id="transactions-filter" placeholder="Filter by sender, recipient, note, or amount..." onkeyup="filterByText('transactions')" oninput="toggleClearButton('transactions')">
                 <button class="filter-clear" id="transactions-clear" onclick="clearFilter('transactions')" title="Clear filter">×</button>
             </div>
             <div class="column-controls">
@@ -290,7 +290,7 @@
                     <div class="item {% if transaction.cleared %}cleared{% endif %}" 
                          data-cleared="{{ transaction.cleared|lower }}" 
                          data-type="transaction"
-                         data-searchable="{{ transaction.from|lower }} {{ transaction.note|lower }}">
+                         data-searchable="{{ transaction.from|lower }} {{ transaction.to|lower }} {{ transaction.note|lower }} {{ transaction.amount|lower }} {{ transaction.type|lower }}">
                         <div class="item-header">
                             <div>
                                 <input type="checkbox" class="checkbox" 
