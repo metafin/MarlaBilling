@@ -238,7 +238,7 @@
                 <button class="filter-clear" id="appointments-clear" onclick="clearFilter('appointments')" title="Clear filter">×</button>
             </div>
             <div class="column-controls">
-                <span>Total: {{ appointments|length }}</span>
+                <span id="appointments-count">Total: {{ appointments|length }}</span>
                 <button class="toggle-cleared" onclick="toggleShowCleared('appointments')">
                     <span id="appointments-toggle-text">Hide Cleared</span>
                 </button>
@@ -280,7 +280,7 @@
                 <button class="filter-clear" id="transactions-clear" onclick="clearFilter('transactions')" title="Clear filter">×</button>
             </div>
             <div class="column-controls">
-                <span>Total: {{ transactions|length }}</span>
+                <span id="transactions-count">Total: {{ transactions|length }}</span>
                 <button class="toggle-cleared" onclick="toggleShowCleared('transactions')">
                     <span id="transactions-toggle-text">Hide Cleared</span>
                 </button>
@@ -348,6 +348,30 @@
         let showClearedAppointments = true;
         let showClearedTransactions = true;
 
+        function updateCounts() {
+            // Update appointments count
+            const appointmentItems = document.querySelectorAll('#appointments-container .item');
+            let appointmentVisibleCount = 0;
+            appointmentItems.forEach(item => {
+                if (item.style.display !== 'none') {
+                    appointmentVisibleCount++;
+                }
+            });
+            document.getElementById('appointments-count').textContent = 
+                showClearedAppointments ? `Total: ${appointmentVisibleCount}` : `Uncleared: ${appointmentVisibleCount}`;
+            
+            // Update transactions count
+            const transactionItems = document.querySelectorAll('#transactions-container .item');
+            let transactionVisibleCount = 0;
+            transactionItems.forEach(item => {
+                if (item.style.display !== 'none') {
+                    transactionVisibleCount++;
+                }
+            });
+            document.getElementById('transactions-count').textContent = 
+                showClearedTransactions ? `Total: ${transactionVisibleCount}` : `Uncleared: ${transactionVisibleCount}`;
+        }
+
         function openVenmoModal() {
             document.getElementById('venmoModal').style.display = 'block';
         }
@@ -390,6 +414,9 @@
                     item.style.display = 'none';
                 }
             });
+            
+            // Update counts after filtering
+            updateCounts();
         }
 
         function filterByText(type) {
@@ -447,6 +474,9 @@
                 });
             });
             
+            // Update counts after toggling
+            updateCounts();
+            
             // Send update to server
             fetch('/toggle_cleared', {
                 method: 'POST',
@@ -471,6 +501,11 @@
             if (event.target === modal) {
                 closeVenmoModal();
             }
+        }
+        
+        // Initialize counts on page load
+        window.onload = function() {
+            updateCounts();
         }
     </script>
 </body>
